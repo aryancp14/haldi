@@ -122,8 +122,14 @@ contract TurmericSupplyChain is AccessControl {
     event PacketSold(string indexed packet_id, string indexed batch_id, string shopkeeper_id);
 
     constructor(address admin) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-    }
+    _grantRole(DEFAULT_ADMIN_ROLE, admin);
+
+    _grantRole(FARMER_ROLE, admin);
+    _grantRole(PROCESSOR_ROLE, admin);
+    _grantRole(DISTRIBUTOR_ROLE, admin);
+    _grantRole(SUPPLIER_ROLE, admin);
+    _grantRole(SHOPKEEPER_ROLE, admin);
+}
 
     // ---------------- ADD FUNCTIONS ----------------
     function addHarvest(string memory batch_id, Harvest memory h) public onlyRole(FARMER_ROLE) {

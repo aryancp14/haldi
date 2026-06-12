@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract TurmericSupplyChain is AccessControl {
+
     bytes32 public constant FARMER_ROLE = keccak256("FARMER_ROLE");
     bytes32 public constant PROCESSOR_ROLE = keccak256("PROCESSOR_ROLE");
     bytes32 public constant DISTRIBUTOR_ROLE = keccak256("DISTRIBUTOR_ROLE");
@@ -75,121 +76,309 @@ contract TurmericSupplyChain is AccessControl {
     mapping(string => Supplier) private suppliers;
     mapping(string => Shopkeeper) private shopkeepers;
 
-    // Shopkeeper: once sold, cannot be reverted (on-chain finality)
     mapping(string => bool) private packetSold;
 
-    // NOTE: indexed string values are stored as a hash in logs, not the original string.
-    // For off-chain systems that must read the real packet_id, emit a non-indexed copy too.
-    event PacketRegistered(string indexed unique_packet_id, string batch_id, string current_stage);
-    event PacketRegisteredPlain(string unique_packet_id, string batch_id, string current_stage);
-    event PacketStageUpdated(string indexed unique_packet_id, string previous_stage, string new_stage);
-    event PacketStageUpdatedPlain(string unique_packet_id, string previous_stage, string new_stage);
-    event PacketSold(string indexed packet_id, string indexed batch_id, string shopkeeper_id);
+    event HarvestRecorded(
+        string farmer_id,
+        string batch_id
+    );
+
+    event PacketRegistered(
+        string indexed unique_packet_id,
+        string batch_id,
+        string current_stage
+    );
+
+    event PacketRegisteredPlain(
+        string unique_packet_id,
+        string batch_id,
+        string current_stage
+    );
+
+    event PacketStageUpdated(
+        string indexed unique_packet_id,
+        string previous_stage,
+        string new_stage
+    );
+
+    event PacketStageUpdatedPlain(
+        string unique_packet_id,
+        string previous_stage,
+        string new_stage
+    );
+
+    event PacketSold(
+        string indexed packet_id,
+        string indexed batch_id,
+        string shopkeeper_id
+    );
 
     constructor(address admin) {
-        _grantRole(DEFAULT_ADMIN_ROLE, admin);
-    }
+    _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
-    // ---------------- ADD FUNCTIONS ----------------
-    function addHarvest(string memory batch_id, Harvest memory h) public onlyRole(FARMER_ROLE) {
+    _grantRole(FARMER_ROLE, admin);
+    _grantRole(PROCESSOR_ROLE, admin);
+    _grantRole(DISTRIBUTOR_ROLE, admin);
+    _grantRole(SUPPLIER_ROLE, admin);
+    _grantRole(SHOPKEEPER_ROLE, admin);
+}
+
+    // ---------------- HARVEST ----------------
+
+    function addHarvest(
+        string memory batch_id,
+        Harvest memory h
+    ) public onlyRole(FARMER_ROLE) {
+
         harvests[batch_id] = h;
+
+        emit HarvestRecorded(
+            h.farmer_id,
+            batch_id
+        );
     }
 
-    function addProcessing(string memory batch_id, Processing memory p) public onlyRole(PROCESSOR_ROLE) {
+    // ---------------- PROCESSING ----------------
+
+    function addProcessing(
+        string memory batch_id,
+        Processing memory p
+    ) public onlyRole(PROCESSOR_ROLE) {
+
         processings[batch_id] = p;
 
-        // automatically register packet if new
         if (!packets[p.packet_id].exists) {
-            packets[p.packet_id] = Packet(p.packet_id, batch_id, "processing", true);
-            emit PacketRegistered(p.packet_id, batch_id, "processing");
-            emit PacketRegisteredPlain(p.packet_id, batch_id, "processing");
+
+            packets[p.packet_id] =
+                Packet(
+                    p.packet_id,
+                    batch_id,
+                    "processing",
+                    true
+                );
+
+            emit PacketRegistered(
+                p.packet_id,
+                batch_id,
+                "processing"
+            );
+
+            emit PacketRegisteredPlain(
+                p.packet_id,
+                batch_id,
+                "processing"
+            );
+
         } else {
-            string memory prev = packets[p.packet_id].current_stage;
-            packets[p.packet_id].current_stage = "processing";
-            emit PacketStageUpdated(p.packet_id, prev, "processing");
-            emit PacketStageUpdatedPlain(p.packet_id, prev, "processing");
+
+            string memory prev =
+                packets[p.packet_id].current_stage;
+
+            packets[p.packet_id].current_stage =
+                "processing";
+
+            emit PacketStageUpdated(
+                p.packet_id,
+                prev,
+                "processing"
+            );
+
+            emit PacketStageUpdatedPlain(
+                p.packet_id,
+                prev,
+                "processing"
+            );
         }
     }
 
-    function addDistributor(string memory packet_id, Distributor memory d) public onlyRole(DISTRIBUTOR_ROLE) {
+    function addDistributor(
+        string memory packet_id,
+        Distributor memory d
+    ) public onlyRole(DISTRIBUTOR_ROLE) {
+
         distributors[packet_id] = d;
 
         if (packets[packet_id].exists) {
-            string memory prev = packets[packet_id].current_stage;
-            packets[packet_id].current_stage = "distributor";
-            emit PacketStageUpdated(packet_id, prev, "distributor");
-            emit PacketStageUpdatedPlain(packet_id, prev, "distributor");
+
+            string memory prev =
+                packets[packet_id].current_stage;
+
+            packets[packet_id].current_stage =
+                "distributor";
+
+            emit PacketStageUpdated(
+                packet_id,
+                prev,
+                "distributor"
+            );
+
+            emit PacketStageUpdatedPlain(
+                packet_id,
+                prev,
+                "distributor"
+            );
         }
     }
 
-    function addSupplier(string memory packet_id, Supplier memory s) public onlyRole(SUPPLIER_ROLE) {
+    function addSupplier(
+        string memory packet_id,
+        Supplier memory s
+    ) public onlyRole(SUPPLIER_ROLE) {
+
         suppliers[packet_id] = s;
 
         if (packets[packet_id].exists) {
-            string memory prev = packets[packet_id].current_stage;
-            packets[packet_id].current_stage = "supplier";
-            emit PacketStageUpdated(packet_id, prev, "supplier");
-            emit PacketStageUpdatedPlain(packet_id, prev, "supplier");
+
+            string memory prev =
+                packets[packet_id].current_stage;
+
+            packets[packet_id].current_stage =
+                "supplier";
+
+            emit PacketStageUpdated(
+                packet_id,
+                prev,
+                "supplier"
+            );
+
+            emit PacketStageUpdatedPlain(
+                packet_id,
+                prev,
+                "supplier"
+            );
         }
     }
 
-    function addShopkeeper(string memory packet_id, Shopkeeper memory sh) public onlyRole(SHOPKEEPER_ROLE) {
+    function addShopkeeper(
+        string memory packet_id,
+        Shopkeeper memory sh
+    ) public onlyRole(SHOPKEEPER_ROLE) {
+
         shopkeepers[packet_id] = sh;
 
         if (packets[packet_id].exists) {
-            string memory prev = packets[packet_id].current_stage;
-            packets[packet_id].current_stage = "shopkeeper";
-            emit PacketStageUpdated(packet_id, prev, "shopkeeper");
-            emit PacketStageUpdatedPlain(packet_id, prev, "shopkeeper");
+
+            string memory prev =
+                packets[packet_id].current_stage;
+
+            packets[packet_id].current_stage =
+                "shopkeeper";
+
+            emit PacketStageUpdated(
+                packet_id,
+                prev,
+                "shopkeeper"
+            );
+
+            emit PacketStageUpdatedPlain(
+                packet_id,
+                prev,
+                "shopkeeper"
+            );
         }
     }
 
-    function addPacket(string memory packet_id, Packet memory p) public onlyRole(PROCESSOR_ROLE) {
+    function addPacket(
+        string memory packet_id,
+        Packet memory p
+    ) public onlyRole(PROCESSOR_ROLE) {
+
         packets[packet_id] = p;
-        emit PacketRegistered(p.unique_packet_id, p.batch_id, p.current_stage);
-        emit PacketRegisteredPlain(p.unique_packet_id, p.batch_id, p.current_stage);
+
+        emit PacketRegistered(
+            p.unique_packet_id,
+            p.batch_id,
+            p.current_stage
+        );
+
+        emit PacketRegisteredPlain(
+            p.unique_packet_id,
+            p.batch_id,
+            p.current_stage
+        );
     }
 
-    function markPacketSold(string memory packet_id, string memory shopkeeper_id) public onlyRole(SHOPKEEPER_ROLE) {
-        require(packets[packet_id].exists, "Packet does not exist");
+    function markPacketSold(
+        string memory packet_id,
+        string memory shopkeeper_id
+    ) public onlyRole(SHOPKEEPER_ROLE) {
+
         require(
-            keccak256(bytes(packets[packet_id].current_stage)) == keccak256(bytes("shopkeeper")),
+            packets[packet_id].exists,
+            "Packet does not exist"
+        );
+
+        require(
+            keccak256(
+                bytes(
+                    packets[packet_id].current_stage
+                )
+            ) ==
+            keccak256(bytes("shopkeeper")),
             "Packet not at shopkeeper stage"
         );
-        require(!packetSold[packet_id], "Packet already sold");
+
+        require(
+            !packetSold[packet_id],
+            "Packet already sold"
+        );
 
         packetSold[packet_id] = true;
-        emit PacketSold(packet_id, packets[packet_id].batch_id, shopkeeper_id);
+
+        emit PacketSold(
+            packet_id,
+            packets[packet_id].batch_id,
+            shopkeeper_id
+        );
     }
 
-    // ---------------- READ FUNCTIONS ----------------
-    function getPacket(string memory packet_id) public view returns (Packet memory) {
+    // ---------------- GETTERS ----------------
+
+    function getPacket(
+        string memory packet_id
+    ) public view returns (Packet memory) {
         return packets[packet_id];
     }
 
-    function getHarvest(string memory batch_id) public view returns (Harvest memory) {
+    function getHarvest(
+        string memory batch_id
+    ) public view returns (Harvest memory) {
         return harvests[batch_id];
     }
 
-    function getProcessing(string memory batch_id) public view returns (Processing memory) {
+    function getHarvestForBatch(
+        string memory batch_id
+    ) public view returns (Harvest memory) {
+        return harvests[batch_id];
+    }
+
+    function getProcessing(
+        string memory batch_id
+    ) public view returns (Processing memory) {
         return processings[batch_id];
     }
 
-    function getDistributor(string memory packet_id) public view returns (Distributor memory) {
+    function getDistributor(
+        string memory packet_id
+    ) public view returns (Distributor memory) {
         return distributors[packet_id];
     }
 
-    function getSupplier(string memory packet_id) public view returns (Supplier memory) {
+    function getSupplier(
+        string memory packet_id
+    ) public view returns (Supplier memory) {
         return suppliers[packet_id];
     }
 
-    function getShopkeeper(string memory packet_id) public view returns (Shopkeeper memory) {
+    function getShopkeeper(
+        string memory packet_id
+    ) public view returns (Shopkeeper memory) {
         return shopkeepers[packet_id];
     }
 
-    function isPacketSold(string memory packet_id) public view returns (bool) {
+    function isPacketSold(
+        string memory packet_id
+    ) public view returns (bool) {
         return packetSold[packet_id];
     }
-
- 
 }

@@ -17,30 +17,34 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Set up axios defaults
   useEffect(() => {
     const token = localStorage.getItem('adminToken');
+
+    axios.defaults.baseURL = API_BASE_URL;
+
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
-    axios.defaults.baseURL = API_BASE_URL;
   }, []);
 
-  // Check if admin is logged in on app start
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('adminToken');
+
       if (token) {
         try {
           const response = await axios.get('/api/auth/me');
+
           setAdmin(response.data.admin);
           setIsAuthenticated(true);
         } catch (error) {
           console.error('Auth check failed:', error);
+
           localStorage.removeItem('adminToken');
           delete axios.defaults.headers.common['Authorization'];
         }
       }
+
       setIsLoading(false);
     };
 
@@ -49,34 +53,52 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     try {
+      console.log('Login Request URL:', `${API_BASE_URL}/api/auth/login`);
+      console.log('Login Data:', credentials);
+
       const response = await axios.post('/api/auth/login', credentials);
+
+      console.log('Login Success:', response.data);
+
       const { token, admin: adminData } = response.data;
-      
+
       localStorage.setItem('adminToken', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+
       setAdmin(adminData);
       setIsAuthenticated(true);
-      
+
       return response.data;
     } catch (error) {
+      console.error('Login Error:', error);
+      console.error('Response:', error.response?.data);
+
       throw new Error(error.response?.data?.message || 'Login failed');
     }
   };
 
   const register = async (credentials) => {
     try {
+      console.log('Register Request URL:', `${API_BASE_URL}/api/auth/register`);
+      console.log('Register Data:', credentials);
+
       const response = await axios.post('/api/auth/register', credentials);
+
+      console.log('Register Success:', response.data);
+
       const { token, admin: adminData } = response.data;
-      
+
       localStorage.setItem('adminToken', token);
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      
+
       setAdmin(adminData);
       setIsAuthenticated(true);
-      
+
       return response.data;
     } catch (error) {
+      console.error('Register Error:', error);
+      console.error('Response:', error.response?.data);
+
       throw new Error(error.response?.data?.message || 'Registration failed');
     }
   };
@@ -85,10 +107,11 @@ export const AuthProvider = ({ children }) => {
     try {
       await axios.post('/api/auth/logout');
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout Error:', error);
     } finally {
       localStorage.removeItem('adminToken');
       delete axios.defaults.headers.common['Authorization'];
+
       setAdmin(null);
       setIsAuthenticated(false);
     }
@@ -109,3 +132,5 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
+
+export default AuthContext;
